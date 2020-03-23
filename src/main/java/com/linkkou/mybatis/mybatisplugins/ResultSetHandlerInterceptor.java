@@ -22,35 +22,26 @@
  * THE SOFTWARE.
  */
 
-package com.plugin.javawidget.mybatisplugins;
+package com.linkkou.mybatis.mybatisplugins;
 
 
-import com.plugin.javawidget.mybatisplugins.Type.MyGsonEnum;
-import com.plugin.javawidget.paging.Paginator;
-import com.plugin.json.serializer.GsonEnum;
-import org.apache.ibatis.cache.CacheKey;
+import com.linkkou.gson.typefactory.GsonEnum;
 import org.apache.ibatis.executor.CachingExecutor;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.executor.resultset.ResultSetHandler;
 import org.apache.ibatis.executor.statement.StatementHandler;
-import org.apache.ibatis.mapping.*;
+import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.plugin.Interceptor;
 import org.apache.ibatis.plugin.Intercepts;
 import org.apache.ibatis.plugin.Invocation;
 import org.apache.ibatis.plugin.Signature;
-import org.apache.ibatis.reflection.MetaObject;
-import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
-import org.apache.ibatis.type.JdbcType;
-import org.apache.ibatis.type.TypeHandlerRegistry;
 import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl;
 
 import java.lang.reflect.*;
 import java.sql.Connection;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Properties;
 
 /**
@@ -89,25 +80,22 @@ public class ResultSetHandlerInterceptor implements Interceptor {
                         final Object proceed = invocation.proceed();
                         if (proceed instanceof ArrayList) {
                             final ArrayList proceed1 = (ArrayList) proceed;
-                            proceed1.stream().forEach((x) -> {
+                            for (Object x : proceed1) {
                                 Field[] fields = x.getClass().getDeclaredFields();
                                 for (Field f : fields) {
                                     f.setAccessible(true);
                                     if (f.getType().equals(GsonEnum.class)) {
                                         if (null != f.getGenericType()) {
                                             try {
-                                                final Object o = f.get(x);
-                                                if(MyGsonEnum.class.equals(o.getClass())){
-                                                    final MyGsonEnum o1 = (MyGsonEnum) o;
-                                                    final ParameterizedTypeImpl genericType = (ParameterizedTypeImpl) f.getGenericType();
-                                                    for (Type actualTypeArgument : genericType.getActualTypeArguments()) {
-                                                        final Class<?> aClass = Class.forName(actualTypeArgument.getTypeName());
-                                                        final Method[] methods = aClass.getMethods();
-                                                        for (Method method : methods) {
-                                                            if ("parse".equals(method.getName())) {
-                                                                final Object invoke = method.invoke(null, o1.getValue());
-                                                                f.set(x,invoke);
-                                                            }
+                                                final GsonEnum o1 = (GsonEnum) f.get(x);
+                                                final ParameterizedTypeImpl genericType = (ParameterizedTypeImpl) f.getGenericType();
+                                                for (Type actualTypeArgument : genericType.getActualTypeArguments()) {
+                                                    final Class<?> aClass = Class.forName(actualTypeArgument.getTypeName());
+                                                    final Method[] methods = aClass.getMethods();
+                                                    for (Method method : methods) {
+                                                        if ("parse".equals(method.getName())) {
+                                                            final Object invoke = method.invoke(null, o1.serialize());
+                                                            f.set(x, invoke);
                                                         }
                                                     }
                                                 }
@@ -117,7 +105,7 @@ public class ResultSetHandlerInterceptor implements Interceptor {
                                         }
                                     }
                                 }
-                            });
+                            }
                         }
                         return proceed;
                     }

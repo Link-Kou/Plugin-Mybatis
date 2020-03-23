@@ -22,15 +22,13 @@
  * THE SOFTWARE.
  */
 
-package com.plugin.javawidget.mybatisplugins;
+package com.linkkou.mybatis.mybatisplugins;
 
 
-import com.plugin.javawidget.paging.Paginator;
+import com.linkkou.mybatis.paging.Pages;
 import org.apache.ibatis.cache.CacheKey;
 import org.apache.ibatis.executor.CachingExecutor;
 import org.apache.ibatis.executor.Executor;
-import org.apache.ibatis.executor.resultset.ResultSetHandler;
-import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.mapping.*;
 import org.apache.ibatis.plugin.Interceptor;
 import org.apache.ibatis.plugin.Intercepts;
@@ -165,6 +163,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
                 setForeach(boundSql, countBoundSql);
                 return countBoundSql;
             }
+
         }
         return paginatorType == true ? new getsql().getSqlFoundRows(mappedStatement, boundSql) : new getsql().getSqlCount(mappedStatement, boundSql);
     }
@@ -230,7 +229,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
                     }
                     if (method.getGenericReturnType() instanceof ParameterizedTypeImpl) {
                         Class typeImpl = ((ParameterizedTypeImpl) method.getGenericReturnType()).getRawType();
-                        return typeImpl.equals(Paginator.class);
+                        return typeImpl.equals(Pages.class);
                     }
                 }
             }
@@ -247,14 +246,14 @@ public class QueryPaginatorInterceptor implements Interceptor {
      * @return
      */
     private List getPaginator(Object invocation, MappedStatement mappedStatement, BoundSql boundSql, Object parameter) {
-        final Paginator paginator = getNamespaceSql(mappedStatement, boundSql, parameter);
+        final Pages pages = getNamespaceSql(mappedStatement, boundSql, parameter);
         if (invocation instanceof ArrayList) {
             ArrayList resultList = (ArrayList) invocation;
-            paginator.setData(resultList.get(0));
-            paginator.setTotal((int) ((ArrayList) resultList.get(1)).get(0));
+            pages.setData(resultList.get(0));
+            pages.setTotal((int) ((ArrayList) resultList.get(1)).get(0));
         }
-        List<Paginator> list = new ArrayList<>();
-        list.add(paginator);
+        List<Pages> list = new ArrayList<>();
+        list.add(pages);
         return list;
     }
 
@@ -266,7 +265,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
      * @param params
      * @return
      */
-    public Paginator getNamespaceSql(MappedStatement mappedStatement, BoundSql boundSql, Object params) {
+    public Pages getNamespaceSql(MappedStatement mappedStatement, BoundSql boundSql, Object params) {
 
         class replaceParameter {
 
@@ -324,7 +323,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
         final Configuration configuration = mappedStatement.getConfiguration();
         TypeHandlerRegistry typeHandlerRegistry = mappedStatement.getConfiguration().getTypeHandlerRegistry();
         List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
-        Paginator<Object> paginator = new Paginator();
+        Pages<Object> pages = new Pages();
         if (parameterMappings != null) {
 
             String sql = boundSql.getSql();
@@ -366,11 +365,11 @@ public class QueryPaginatorInterceptor implements Interceptor {
             if (split.length == 2) {
                 Integer offset = Integer.parseInt(new replace().replaceall(split[0]));
                 Integer itemsPerPage = Integer.parseInt(new replace().replaceall(split[1]));
-                paginator.setItemsPerPage(itemsPerPage);
-                paginator.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
+                pages.setItemsPerPage(itemsPerPage);
+                pages.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
             }
         }
-        return paginator;
+        return pages;
     }
 
 
@@ -392,7 +391,8 @@ public class QueryPaginatorInterceptor implements Interceptor {
         }
         builder.timeout(ms.getTimeout());
         builder.parameterMap(ms.getParameterMap());
-        builder.resultMaps(newResultMap(ms.getResultMaps()));//ms.getResultMaps()
+        //ms.getResultMaps()
+        builder.resultMaps(newResultMap(ms.getResultMaps()));
         builder.resultSetType(ms.getResultSetType());
         builder.cache(ms.getCache());
         builder.flushCacheRequired(ms.isFlushCacheRequired());

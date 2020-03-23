@@ -1,10 +1,8 @@
-package com.plugin.javawidget.paging;
+package com.linkkou.mybatis.paging;
 
 
-import com.google.gson.annotations.Expose;
-import com.plugin.configproperty.Config;
-import com.plugin.configproperty.ConfigUtils;
-import com.plugin.configproperty.ConfigValue;
+import com.linkkou.configproperty.Config;
+import com.linkkou.configproperty.ConfigValue;
 import org.springframework.beans.factory.annotation.Value;
 
 import javax.validation.Valid;
@@ -18,10 +16,9 @@ import javax.validation.Valid;
  *     ......:
  * }
  */
-public class Paginator<T> {
+public class Pages<T> {
 
     //默认分页-每页数量
-
     @ConfigValue(@Value("${Globalparam.Paging.DEFAULT_ITEMS_PER_PAGE}"))
     private transient Config<Integer> DEFAULT_ITEMS_PER_PAGE;
 
@@ -84,7 +81,7 @@ public class Paginator<T> {
      * 当前页
      * @return
      */
-    public Paginator setPage(int val) {
+    public Pages setPage(int val) {
         this.page = val;
         return this;
     }
@@ -93,7 +90,7 @@ public class Paginator<T> {
      * 每页数量
      * @return
      */
-    public Paginator setItemsPerPage(int val) {
+    public Pages setItemsPerPage(int val) {
         this.itemsPerPage = val;
         return this;
     }
