@@ -14,6 +14,18 @@
     JAVA    >  1.8
     Maven   >  3.X
     Mybatis >  3.X
+    
+### Maven仓库
+    
+```xml：
+
+<dependency>
+  <groupId>com.github.link-kou</groupId>
+  <artifactId>mybatis</artifactId>
+  <version>1.0.0</version>
+</dependency>
+
+```
 
 ## 几个点
 
