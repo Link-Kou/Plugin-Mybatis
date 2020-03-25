@@ -49,4 +49,22 @@
 ```
 ### 示列
 
-> 无
+```xml:
+<!-- myBatis文件 -->
+<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+    <property name="dataSource" ref="dataSource"/>
+    <property name="mapperLocations" value="classpath*:com/mybatis/test/**/mapper/**/*Mapper.xml"/>
+    <property name="typeHandlers">
+        <array>
+            <bean class="com.linkkou.mybatis.mybatisplugins.TypeHandlers.AutoGsonEnumTypeHandler"/>
+        </array>
+    </property>
+    <property name="plugins">
+        <array>
+            <bean class="com.linkkou.mybatis.mybatisplugins.QueryPaginatorInterceptor">
+                <property name="paginatorType" value="true"/>
+            </bean>
+        </array>
+    </property>
+</bean>
+```
