@@ -45,7 +45,7 @@ import java.util.ArrayList;
 import java.util.Properties;
 
 /**
- * 目前只有支持MySQL分页支持
+ * 数据转换支持
  *
  * @author lk
  * @version 1.0.0
@@ -58,16 +58,6 @@ import java.util.Properties;
 )
 //@SuppressWarnings()
 public class ResultSetHandlerInterceptor implements Interceptor {
-
-    /**
-     * FOUND_ROWS == true
-     * COUNT(*)  == false
-     */
-    private boolean paginatorType = true;
-
-    public void setPaginatorType(boolean Paginator) {
-        this.paginatorType = Paginator;
-    }
 
     @Override
     public Object intercept(Invocation invocation) throws Throwable {

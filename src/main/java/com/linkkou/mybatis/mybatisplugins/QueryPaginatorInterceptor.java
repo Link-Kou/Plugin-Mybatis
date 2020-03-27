@@ -26,20 +26,20 @@ package com.linkkou.mybatis.mybatisplugins;
 
 
 import com.linkkou.mybatis.paging.Pages;
+import com.linkkou.mybatis.paging.PagesType;
+import com.linkkou.mybatis.utils.FormatSql;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.statement.select.Limit;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.util.TablesNamesFinder;
 import org.apache.ibatis.cache.CacheKey;
-import org.apache.ibatis.executor.CachingExecutor;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.*;
-import org.apache.ibatis.plugin.Interceptor;
-import org.apache.ibatis.plugin.Intercepts;
-import org.apache.ibatis.plugin.Invocation;
-import org.apache.ibatis.plugin.Signature;
-import org.apache.ibatis.reflection.MetaObject;
-import org.apache.ibatis.session.Configuration;
+import org.apache.ibatis.plugin.*;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
-import org.apache.ibatis.type.JdbcType;
-import org.apache.ibatis.type.TypeHandlerRegistry;
 import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl;
 
 import java.lang.reflect.Field;
@@ -47,55 +47,57 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
 /**
  * 目前只有支持MySQL分页支持
+ * 需要开启allowMultiQueries
  *
  * @author lk
  * @version 1.0.0
  */
 @Intercepts(
         {
-                @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class}),
-                @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class, CacheKey.class, BoundSql.class}),
+                @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class, CacheKey.class, BoundSql.class})
         }
 )
 //@SuppressWarnings()
 public class QueryPaginatorInterceptor implements Interceptor {
 
+    private final static String QUERY = "query";
     /**
      * FOUND_ROWS == true
      * COUNT(*)  == false
      */
-    private boolean paginatorType = true;
+    private boolean PAGINATORTYPE = false;
 
-    public void setPaginatorType(boolean Paginator) {
-        this.paginatorType = Paginator;
+    /**
+     * 是否支持多条语句执行
+     */
+    protected boolean ALLOWMULTIQUERIES = true;
+
+    public void setPaginatortype(boolean paginator) {
+        this.PAGINATORTYPE = paginator;
     }
 
     @Override
     public Object intercept(Invocation invocation) throws Throwable {
         final Object[] queryArgs = invocation.getArgs();
-        if (invocation.getTarget() instanceof CachingExecutor) {
-            if (invocation.getTarget() instanceof Executor) {
-                if (invocation.getMethod().getName().equals("query")) {
-                    if (queryArgs.length == 4) {
-                        final MappedStatement mappedStatement = (MappedStatement) queryArgs[0];
-                        if (getinterfaceclass(mappedStatement)) {
-                            final Object parameter = queryArgs[1];
-                            final BoundSql boundSql = mappedStatement.getBoundSql(parameter);
-                            MappedStatement newMs = ProxyResultSetHandler(mappedStatement, new BoundSqlSqlSource(getPagingSql(mappedStatement, boundSql)));
-                            queryArgs[0] = newMs;
-                            return getPaginator(invocation.proceed(), mappedStatement, boundSql, parameter);
-                        }
+        if (invocation.getTarget() instanceof Executor && ALLOWMULTIQUERIES) {
+            final MappedStatement mappedStatement = (MappedStatement) queryArgs[0];
+            if (SqlCommandType.SELECT == mappedStatement.getSqlCommandType()) {
+                if (QUERY.equals(invocation.getMethod().getName()) && queryArgs.length == 4) {
+                    if (getinterfaceclass(mappedStatement)) {
+                        final Object parameter = queryArgs[1];
+                        final BoundSql boundSql = mappedStatement.getBoundSql(parameter);
+                        MappedStatement newMs = ProxyResultSetHandler(mappedStatement, new BoundSqlSqlSource(getPagingSql(mappedStatement, boundSql)));
+                        queryArgs[0] = newMs;
+                        return getPaginator(invocation.proceed(), mappedStatement, boundSql, parameter);
                     }
                 }
             }
         }
-
         return invocation.proceed();
     }
 
@@ -107,75 +109,77 @@ public class QueryPaginatorInterceptor implements Interceptor {
      * @return
      */
     private BoundSql getPagingSql(MappedStatement mappedStatement, BoundSql boundSql) {
-        class getsql {
-            /**
-             * <p>
-             * select rowid, fid
-             * from t_sysconfig_carspec_config tscc
-             * WHERE fcar_name = #{car}
-             * LIMIT
-             * #{offset},#{rows}
-             * </p>
-             *
-             * @param mappedStatement
-             * @param boundSql
-             * @return
-             */
-            private BoundSql getSqlCount(MappedStatement mappedStatement, BoundSql boundSql) {
-                String sql = boundSql.getSql();
-                String[] conditions = sql.split(" ", 2);
-                //除了Select以外的语句
-                String[] limits = conditions[1].split("LIMIT");
-                StringBuilder stringBuilder = new StringBuilder();
-                for (int i = 0; i < limits.length - 1; i++) {
-                    stringBuilder.append(limits[i]);
+        if (PAGINATORTYPE) {
+            return getSqlFoundRows(mappedStatement, boundSql);
+        } else {
+            return getSqlCountTrue(mappedStatement, boundSql);
+        }
+    }
+
+    /**
+     * ALLOWMULTIQUERIES = true count(*) 模式
+     * <p>
+     * select rowid, fid
+     * from t_sysconfig_carspec_config tscc
+     * WHERE fcar_name = #{car}
+     * LIMIT
+     * #{offset},#{rows}
+     * </p>
+     *
+     * @param mappedStatement
+     * @param boundSql
+     * @return
+     */
+    private BoundSql getSqlCountTrue(MappedStatement mappedStatement, BoundSql boundSql) {
+        String sql = boundSql.getSql();
+        try {
+            Select select = (Select) CCJSqlParserUtil.parse(sql);
+            final PlainSelect selectBody = (PlainSelect) select.getSelectBody();
+            TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
+            final List<String> tableList = tablesNamesFinder.getTableList(select);
+            if (tableList.size() == 1) {
+                String newSql;
+                if (selectBody.getWhere() != null) {
+                    newSql = String.format("%s ; select count(*) from %s Where %s ", sql, tableList.get(0), selectBody.getWhere());
+                } else {
+                    newSql = String.format("%s ; select count(*) from %s", sql, tableList.get(0));
                 }
-                String countSql = "; select count(*) " + stringBuilder.toString();
                 List<ParameterMapping> newparameterMappings = new ArrayList<>();
                 List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
-                newparameterMappings.addAll(parameterMappings);
+                //newparameterMappings.addAll(parameterMappings);
                 //Limit 去两个参数，所有参数以Mapper顺序为准
                 for (int i = 0; i < parameterMappings.size() - 2; i++) {
                     newparameterMappings.add(parameterMappings.get(i));
                 }
-                BoundSql countBoundSql = new BoundSql(mappedStatement.getConfiguration(), sql + countSql, newparameterMappings, boundSql.getParameterObject());
+                BoundSql countBoundSql = new BoundSql(mappedStatement.getConfiguration(), newSql, newparameterMappings, boundSql.getParameterObject());
                 return countBoundSql;
             }
-
-            /**
-             * <p>
-             * select SQL_CALC_FOUND_ROWS rowid, fid
-             * from t_sysconfig_carspec_config tscc
-             * WHERE fcar_name = #{car}
-             * LIMIT
-             * #{offset},#{rows}
-             * </p>
-             *
-             * @param mappedStatement
-             * @param boundSql
-             * @return
-             */
-            private BoundSql getSqlFoundRows(MappedStatement mappedStatement, BoundSql boundSql) {
-                String sql = boundSql.getSql();
-                sql = sql.replaceFirst("SQL_CALC_FOUND_ROWS", "").replaceFirst("(?i)select", "select SQL_CALC_FOUND_ROWS");
-                String countSql = "; SELECT FOUND_ROWS() AS COUNT ; ";
-                BoundSql countBoundSql = new BoundSql(mappedStatement.getConfiguration(), sql + countSql, boundSql.getParameterMappings(), boundSql.getParameterObject());
-                setForeach(boundSql, countBoundSql);
-                return countBoundSql;
-            }
-
+        } catch (JSQLParserException e) {
+            e.printStackTrace();
         }
-        return paginatorType == true ? new getsql().getSqlFoundRows(mappedStatement, boundSql) : new getsql().getSqlCount(mappedStatement, boundSql);
+        return boundSql;
     }
 
-
     /**
-     * 构建对Foreach的支持
+     * ALLOWMULTIQUERIES = true SQL_CALC_FOUND_ROWS 模式
+     * <p>
+     * select SQL_CALC_FOUND_ROWS rowid, fid
+     * from t_sysconfig_carspec_config tscc
+     * WHERE fcar_name = #{car}
+     * LIMIT
+     * #{offset},#{rows}
+     * </p>
      *
+     * @param mappedStatement
      * @param boundSql
-     * @param countBoundSql
+     * @return
      */
-    private void setForeach(BoundSql boundSql, BoundSql countBoundSql) {
+    private BoundSql getSqlFoundRows(MappedStatement mappedStatement, BoundSql boundSql) {
+        String sql = boundSql.getSql();
+        sql = sql.replaceFirst("SQL_CALC_FOUND_ROWS", "").replaceFirst("(?i)select", "select SQL_CALC_FOUND_ROWS");
+        String countSql = "; SELECT FOUND_ROWS() AS COUNT ; ";
+        BoundSql countBoundSql = new BoundSql(mappedStatement.getConfiguration(), sql + countSql, boundSql.getParameterMappings(), boundSql.getParameterObject());
+        //构建对Foreach的支持
         try {
             Field[] boundSqlfield = boundSql.getClass().getDeclaredFields();
             Field[] countBoundSqlfields = countBoundSql.getClass().getDeclaredFields();
@@ -194,7 +198,9 @@ public class QueryPaginatorInterceptor implements Interceptor {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return countBoundSql;
     }
+
 
     /**
      * 判断返回参数是否为指定的分页对象
@@ -202,7 +208,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
      * @param mappedStatement
      * @return
      */
-    private boolean getinterfaceclass(MappedStatement mappedStatement) {
+    protected boolean getinterfaceclass(MappedStatement mappedStatement) {
         //class.forName("com.plugin.dao.SysconfigCarspecConfigMapper").getMethods()[0].getGenericReturnType
         StringBuilder stringBuilder = new StringBuilder();
         String[] oldpath = mappedStatement.getId().split("\\.");
@@ -223,9 +229,9 @@ public class QueryPaginatorInterceptor implements Interceptor {
             Method[] methods = classs.getMethods();
             for (Method method : methods) {
                 if (method.getName().equals(methodsname)) {
-                    PaginatorType jsonResultValue = method.getAnnotation(PaginatorType.class);
+                    PagesType jsonResultValue = method.getAnnotation(PagesType.class);
                     if (jsonResultValue != null) {
-                        paginatorType = jsonResultValue.value();
+                        PAGINATORTYPE = jsonResultValue.value();
                     }
                     if (method.getGenericReturnType() instanceof ParameterizedTypeImpl) {
                         Class typeImpl = ((ParameterizedTypeImpl) method.getGenericReturnType()).getRawType();
@@ -241,12 +247,13 @@ public class QueryPaginatorInterceptor implements Interceptor {
 
     /**
      * 构建返回参数
+     * {@link org.apache.ibatis.session.defaults} selectOne 方法实现
      *
      * @param invocation
-     * @return
+     * @return Select 默认支持 T
      */
-    private List getPaginator(Object invocation, MappedStatement mappedStatement, BoundSql boundSql, Object parameter) {
-        final Pages pages = getNamespaceSql(mappedStatement, boundSql, parameter);
+    private List<?> getPaginator(Object invocation, MappedStatement mappedStatement, BoundSql boundSql, Object parameter) {
+        final Pages pages = getSqlLimitToPages(mappedStatement, boundSql, parameter);
         if (invocation instanceof ArrayList) {
             ArrayList resultList = (ArrayList) invocation;
             pages.setData(resultList.get(0));
@@ -258,116 +265,27 @@ public class QueryPaginatorInterceptor implements Interceptor {
     }
 
     /**
-     * 构建完整的SQL语句，获取到输入的Limt的值，从新返回到分页对象中
+     * 构建完整的SQL语句，获取到输入的Limt的值
+     * 设置到Pages对象中
      *
      * @param mappedStatement
      * @param boundSql
      * @param params
      * @return
      */
-    public Pages getNamespaceSql(MappedStatement mappedStatement, BoundSql boundSql, Object params) {
-
-        class replaceParameter {
-
-            private String sql;
-
-            /**
-             * 根据类型替换参数
-             * 仅作为数字和字符串两种类型进行处理，需要特殊处理的可以继续完善这里
-             *
-             * @param sql
-             * @param value
-             * @param jdbcType
-             * @param javaType
-             * @return
-             */
-            public replaceParameter(String sql, Object value, JdbcType jdbcType, Class javaType) {
-                String strValue = String.valueOf(value);
-                if (jdbcType != null) {
-                    switch (jdbcType) {
-                        //数字
-                        case BIT:
-                        case TINYINT:
-                        case SMALLINT:
-                        case INTEGER:
-                        case BIGINT:
-                        case FLOAT:
-                        case REAL:
-                        case DOUBLE:
-                        case NUMERIC:
-                        case DECIMAL:
-                            break;
-                        //日期
-                        case DATE:
-                        case TIME:
-                        case TIMESTAMP:
-                            //其他，包含字符串和其他特殊类型
-                        default:
-                            strValue = "'" + strValue + "'";
-
-
-                    }
-                } else if (Number.class.isAssignableFrom(javaType)) {
-                    //不加单引号
-                } else {
-                    strValue = "'" + strValue + "'";
-                }
-                this.sql = sql.replaceFirst("\\?", strValue);
-            }
-
-            public String getSql() {
-                return this.sql;
-            }
-        }
-
-        final Configuration configuration = mappedStatement.getConfiguration();
-        TypeHandlerRegistry typeHandlerRegistry = mappedStatement.getConfiguration().getTypeHandlerRegistry();
-        List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
+    public Pages getSqlLimitToPages(MappedStatement mappedStatement, BoundSql boundSql, Object params) {
         Pages<Object> pages = new Pages();
-        if (parameterMappings != null) {
-
-            String sql = boundSql.getSql();
-            for (ParameterMapping parameterMapping : parameterMappings) {
-                if (parameterMapping.getMode() != ParameterMode.OUT) {
-                    String propertyName = parameterMapping.getProperty();
-                    Object value;
-                    if (boundSql.hasAdditionalParameter(propertyName)) {
-                        value = boundSql.getAdditionalParameter(propertyName);
-                    } else if (params == null) {
-                        value = null;
-                    } else if (typeHandlerRegistry.hasTypeHandler(params.getClass())) {
-                        value = params;
-                    } else {
-                        MetaObject metaObject = configuration.newMetaObject(params);
-                        value = metaObject.getValue(propertyName);
-                    }
-                    /*if (parameterMapping.getProperty().endsWith("offset")){
-                        offset = (Integer) value;
-                    }
-                    if(parameterMapping.getProperty().endsWith("itemsPerPage")) {
-                        itemsPerPage = (Integer) value;
-                    }*/
-                    JdbcType jdbcType = parameterMapping.getJdbcType();
-                    if (value == null && jdbcType == null) {
-                        jdbcType = configuration.getJdbcTypeForNull();
-                    }
-                    sql = new replaceParameter(sql, value, jdbcType, parameterMapping.getJavaType()).getSql();
-                }
-            }
-            final String[] limits = sql.split("(?i)LIMIT");
-            final String limitval = Arrays.asList(limits).get(limits.length - 1);
-            final String[] split = limitval.split(",");
-            class replace{
-                String replaceall(String val){
-                   return val.replaceAll("'", "").replaceAll(" ", "").replaceAll("(\r\n|\r|\n|\n\r)","");
-                }
-            }
-            if (split.length == 2) {
-                Integer offset = Integer.parseInt(new replace().replaceall(split[0]));
-                Integer itemsPerPage = Integer.parseInt(new replace().replaceall(split[1]));
-                pages.setItemsPerPage(itemsPerPage);
-                pages.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
-            }
+        final FormatSql formatSql = new FormatSql(mappedStatement, boundSql, params);
+        try {
+            Select select = (Select) CCJSqlParserUtil.parse(formatSql.getSql());
+            final PlainSelect selectBody = (PlainSelect) select.getSelectBody();
+            final Limit limit = selectBody.getLimit();
+            Integer offset = Integer.parseInt(limit.getOffset().toString());
+            Integer itemsPerPage = Integer.parseInt(limit.getRowCount().toString());
+            pages.setItemsPerPage(itemsPerPage);
+            pages.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return pages;
     }
@@ -391,7 +309,6 @@ public class QueryPaginatorInterceptor implements Interceptor {
         }
         builder.timeout(ms.getTimeout());
         builder.parameterMap(ms.getParameterMap());
-        //ms.getResultMaps()
         builder.resultMaps(newResultMap(ms.getResultMaps()));
         builder.resultSetType(ms.getResultSetType());
         builder.cache(ms.getCache());
@@ -402,9 +319,10 @@ public class QueryPaginatorInterceptor implements Interceptor {
 
     /**
      * 构建统一的返回值
+     * 支持 allowMultiQueries=true的时候ResultMap会返回多值
      */
-    private List<ResultMap> newResultMap(List<ResultMap> lrm) {
-        ResultMap resultMap = new ResultMap.Builder(null, lrm.size() > 0 ? lrm.get(0).getId() : "", Integer.class, new ArrayList<ResultMapping>()).build();
+    protected List<ResultMap> newResultMap(List<ResultMap> lrm) {
+        ResultMap resultMap = new ResultMap.Builder(null, lrm.size() > 0 ? lrm.get(0).getId() : "", Object.class, new ArrayList<ResultMapping>()).build();
         List<ResultMap> list = new ArrayList<>();
         if (lrm.size() > 0) {
             list.add(lrm.get(0));
@@ -415,16 +333,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
 
     @Override
     public Object plugin(Object target) {
-        if (target instanceof Executor) {
-            return Proxy.newProxyInstance(Interceptor.class.getClassLoader(), target.getClass().getInterfaces(), new InvocationHandler() {
-                @Override
-                public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                    return intercept(new Invocation(target, method, args));
-                }
-            });
-        } else {
-            return target;
-        }
+        return Plugin.wrap(target, this);
     }
 
     @Override

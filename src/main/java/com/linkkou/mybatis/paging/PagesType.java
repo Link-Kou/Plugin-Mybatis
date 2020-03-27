@@ -1,4 +1,4 @@
-package com.linkkou.mybatis.mybatisplugins;
+package com.linkkou.mybatis.paging;
 
 
 import java.lang.annotation.*;
@@ -12,7 +12,7 @@ import java.lang.annotation.*;
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface PaginatorType {
+public @interface PagesType {
 
     /**
      * FOUND_ROWS == true

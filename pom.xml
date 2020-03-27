@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.link-kou</groupId>
     <artifactId>mybatis</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
     <name>Plugin-Mybatis-${project.version}</name>
     <url>https://github.com/Link-Kou/Plugin-Mybatis</url>
@@ -41,6 +41,8 @@
 
     <inceptionYear>2019</inceptionYear>
 
+
+
     <organization>
         <name>Link-Kou</name>
         <url>https://github.com/Link-Kou/Plugin-Mybatis</url>
@@ -59,7 +61,7 @@
         <dependency>
             <groupId>org.mybatis</groupId>
             <artifactId>mybatis</artifactId>
-            <version>3.4.2</version>
+            <version>3.5.4</version>
         </dependency>
 
         <!--统一配置-->
@@ -83,6 +85,12 @@
             <version>1.0.0</version>
         </dependency>
 
+        <!-- SQl语法分析 -->
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>3.1</version>
+        </dependency>
 
     </dependencies>
 

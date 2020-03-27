@@ -3,9 +3,10 @@
 ### Plugin-Mybatis 能做什么？
 
 > 基于Plugin-Mybatis实现以下功能
-- 辅助分页
+- 辅助分页(为什么不能更傻瓜式,因为你会碰到无法想象的关联以及一些子查询的时候,你会发现插件真的就是傻瓜。)
 - Data、Time、Timestamp需要为NUll的情况或0000-00-00 00:00:00
 - 辅助枚举的装换
+- 辅助乐观锁（只支持时间方式）
 - 多租户和读写分离（未开发）
 
 ---
@@ -31,7 +32,7 @@
 
 > 与MyBatis-Plus比较
 
--  MyBatis-Plus很牛的开源项目。我的目的不是替代或与其争锋。而且我觉得MyBatis-Plus做的过度了。
+-  [MyBatis-Plus](https://github.com/baomidou/mybatis-plus)很牛的开源项目。我的目的不是替代或与其争锋。
 
 > 我目的
 
