@@ -7,7 +7,7 @@
 - Data、Time、Timestamp需要为NUll的情况或0000-00-00 00:00:00
 - 辅助枚举的装换
 - 辅助乐观锁（只支持时间方式）
-- 多租户和读写分离（未开发）
+- 辅助多租户和读写分离（多数据源切换）
 
 ---
 ### 使用环境
@@ -23,7 +23,7 @@
 <dependency>
   <groupId>com.github.link-kou</groupId>
   <artifactId>mybatis</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
 </dependency>
 
 ```

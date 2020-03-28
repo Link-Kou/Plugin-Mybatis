@@ -56,6 +56,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Intercepts(
         {
+                @Signature(type = StatementHandler.class, method = "update", args = {Statement.class}),
                 @Signature(type = StatementHandler.class, method = "prepare", args = {Connection.class, Integer.class})
         }
 )
@@ -69,6 +70,8 @@ public class UpdateOptimisticLockerInterceptor implements Interceptor {
     private String VERSIONFIELD;
 
     private final static String PREPARE = "prepare";
+
+    private final static String UPDATE = "update";
 
     private Object VALUE;
 
@@ -108,8 +111,11 @@ public class UpdateOptimisticLockerInterceptor implements Interceptor {
                     if (getinterfaceclass(mappedStatement)) {
                         if (PREPARE.equals(invocation.getMethod().getName())) {
                             VALUE = executeSelectSql(invocation, mappedStatement, boundSql);
+                            modifyUpdateSql(metaObject, mappedStatement, boundSql, this.VALUE);
                         }
-                        modifyUpdateSql(metaObject, mappedStatement, boundSql, this.VALUE);
+                        if (UPDATE.equals(invocation.getMethod().getName())) {
+
+                        }
                         return invocation.proceed();
                     }
                 }

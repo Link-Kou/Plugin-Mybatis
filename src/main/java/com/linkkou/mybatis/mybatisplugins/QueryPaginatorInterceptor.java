@@ -59,6 +59,7 @@ import java.util.Properties;
  */
 @Intercepts(
         {
+                @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class}),
                 @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class, CacheKey.class, BoundSql.class})
         }
 )
@@ -146,7 +147,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
                 }
                 List<ParameterMapping> newparameterMappings = new ArrayList<>();
                 List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
-                //newparameterMappings.addAll(parameterMappings);
+                newparameterMappings.addAll(parameterMappings);
                 //Limit 去两个参数，所有参数以Mapper顺序为准
                 for (int i = 0; i < parameterMappings.size() - 2; i++) {
                     newparameterMappings.add(parameterMappings.get(i));
@@ -322,7 +323,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
      * 支持 allowMultiQueries=true的时候ResultMap会返回多值
      */
     protected List<ResultMap> newResultMap(List<ResultMap> lrm) {
-        ResultMap resultMap = new ResultMap.Builder(null, lrm.size() > 0 ? lrm.get(0).getId() : "", Object.class, new ArrayList<ResultMapping>()).build();
+        ResultMap resultMap = new ResultMap.Builder(null, lrm.size() > 0 ? lrm.get(0).getId() : "", Integer.class, new ArrayList<ResultMapping>()).build();
         List<ResultMap> list = new ArrayList<>();
         if (lrm.size() > 0) {
             list.add(lrm.get(0));
