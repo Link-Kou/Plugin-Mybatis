@@ -26,6 +26,7 @@ package com.linkkou.mybatis.mybatisplugins;
 
 
 import com.linkkou.mybatis.lock.Lock;
+import com.linkkou.mybatis.lock.UnLock;
 import com.linkkou.mybatis.utils.PluginUtils;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
@@ -75,10 +76,20 @@ public class UpdateOptimisticLockerInterceptor implements Interceptor {
 
     private Object VALUE;
 
+    /**
+     * 默认全局开启关闭采用
+     * {@link Lock}进行独立加锁
+     */
+    private Boolean GLOBALOPENING = false;
+
     static {
         dateTimeFormatterHashMap.put("Timestamp", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         dateTimeFormatterHashMap.put("Time", DateTimeFormatter.ofPattern("HH:mm:ss"));
         dateTimeFormatterHashMap.put("Date", DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    }
+
+    public void setGlobalopening(Boolean globalopening) {
+        this.GLOBALOPENING = globalopening;
     }
 
     public void setVersionFieldType(String versionfield) {
@@ -112,9 +123,6 @@ public class UpdateOptimisticLockerInterceptor implements Interceptor {
                         if (PREPARE.equals(invocation.getMethod().getName())) {
                             VALUE = executeSelectSql(invocation, mappedStatement, boundSql);
                             modifyUpdateSql(metaObject, mappedStatement, boundSql, this.VALUE);
-                        }
-                        if (UPDATE.equals(invocation.getMethod().getName())) {
-
                         }
                         return invocation.proceed();
                     }
@@ -250,8 +258,13 @@ public class UpdateOptimisticLockerInterceptor implements Interceptor {
             Method[] methods = classs.getMethods();
             for (Method method : methods) {
                 if (method.getName().equals(methodsname)) {
-                    Lock lock = method.getAnnotation(Lock.class);
-                    return lock != null;
+                    if (this.GLOBALOPENING) {
+                        UnLock lock = method.getAnnotation(UnLock.class);
+                        return lock == null;
+                    } else {
+                        Lock lock = method.getAnnotation(Lock.class);
+                        return lock != null;
+                    }
                 }
             }
         } catch (Exception e) {

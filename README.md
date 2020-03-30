@@ -7,7 +7,7 @@
 - Data、Time、Timestamp需要为NUll的情况或0000-00-00 00:00:00
 - 辅助枚举的装换
 - 辅助乐观锁（只支持时间方式）
-- 辅助多租户和读写分离（考虑中）
+- 读写分离（考虑中,市场上有很多读写分离的框架比如[ShardingSphere](https://shardingsphere.apache.org/index_zh.html)）
 
 ---
 ### 使用环境
