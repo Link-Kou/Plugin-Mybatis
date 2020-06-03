@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.link-kou</groupId>
     <artifactId>mybatis</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
     <name>Plugin-Mybatis-${project.version}</name>
     <url>https://github.com/Link-Kou/Plugin-Mybatis</url>
@@ -79,7 +79,7 @@
         <dependency>
             <groupId>com.github.link-kou</groupId>
             <artifactId>gson</artifactId>
-            <version>1.0.3</version>
+            <version>1.0.4</version>
             <scope>compile</scope>
             <optional>true</optional>
         </dependency>
@@ -88,7 +88,7 @@
         <dependency>
             <groupId>com.github.link-kou</groupId>
             <artifactId>annotation-validate</artifactId>
-            <version>1.0.0</version>
+            <version>1.0.2</version>
             <scope>compile</scope>
             <optional>true</optional>
         </dependency>
