@@ -51,7 +51,7 @@ public class AutoGsonEnumTypeHandler<E extends GsonEnum> extends BaseTypeHandler
 
     @Override
     public void setNonNullParameter(PreparedStatement preparedStatement, int i, GsonEnum gsonEnum, JdbcType jdbcType) throws SQLException {
-        preparedStatement.setInt(i, (Integer) gsonEnum.serialize());
+        preparedStatement.setInt(i, gsonEnum.reverse());
     }
 
     @Override

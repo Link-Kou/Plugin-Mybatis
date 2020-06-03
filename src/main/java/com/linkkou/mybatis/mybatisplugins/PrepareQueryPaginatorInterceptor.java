@@ -260,10 +260,15 @@ public class PrepareQueryPaginatorInterceptor implements Interceptor {
             Select select = (Select) CCJSqlParserUtil.parse(formatSql.getSql());
             final PlainSelect selectBody = (PlainSelect) select.getSelectBody();
             final Limit limit = selectBody.getLimit();
-            Integer offset = Integer.parseInt(limit.getOffset().toString());
-            Integer itemsPerPage = Integer.parseInt(limit.getRowCount().toString());
-            pages.setItemsPerPage(itemsPerPage);
-            pages.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
+            try {
+                int offset = Integer.parseInt(limit.getOffset().toString());
+                int itemsPerPage = Integer.parseInt(limit.getRowCount().toString());
+                pages.setItemsPerPage(itemsPerPage);
+                pages.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
+            } catch (Exception e) {
+                pages.setItemsPerPage(0);
+                pages.setPage(0);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -109,7 +109,7 @@ public class QueryPaginatorInterceptor implements Interceptor {
      * @param boundSql
      * @return
      */
-    private BoundSql getPagingSql(MappedStatement mappedStatement, BoundSql boundSql) {
+    private BoundSql getPagingSql(MappedStatement mappedStatement, BoundSql boundSql) throws JSQLParserException {
         if (PAGINATORTYPE) {
             return getSqlFoundRows(mappedStatement, boundSql);
         } else {
@@ -131,34 +131,32 @@ public class QueryPaginatorInterceptor implements Interceptor {
      * @param boundSql
      * @return
      */
-    private BoundSql getSqlCountTrue(MappedStatement mappedStatement, BoundSql boundSql) {
+    private BoundSql getSqlCountTrue(MappedStatement mappedStatement, BoundSql boundSql) throws JSQLParserException {
         String sql = boundSql.getSql();
-        try {
-            Select select = (Select) CCJSqlParserUtil.parse(sql);
-            final PlainSelect selectBody = (PlainSelect) select.getSelectBody();
-            TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
-            final List<String> tableList = tablesNamesFinder.getTableList(select);
-            if (tableList.size() == 1) {
-                String newSql;
-                if (selectBody.getWhere() != null) {
-                    newSql = String.format("%s ; select count(*) from %s Where %s ", sql, tableList.get(0), selectBody.getWhere());
-                } else {
-                    newSql = String.format("%s ; select count(*) from %s", sql, tableList.get(0));
-                }
-                List<ParameterMapping> newparameterMappings = new ArrayList<>();
-                List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
-                newparameterMappings.addAll(parameterMappings);
-                //Limit 去两个参数，所有参数以Mapper顺序为准
-                for (int i = 0; i < parameterMappings.size() - 2; i++) {
-                    newparameterMappings.add(parameterMappings.get(i));
-                }
-                BoundSql countBoundSql = new BoundSql(mappedStatement.getConfiguration(), newSql, newparameterMappings, boundSql.getParameterObject());
-                return countBoundSql;
+        Select select = (Select) CCJSqlParserUtil.parse(sql);
+        final PlainSelect selectBody = (PlainSelect) select.getSelectBody();
+        TablesNamesFinder tablesNamesFinder = new TablesNamesFinder();
+        final List<String> tableList = tablesNamesFinder.getTableList(select);
+        //TODO 不支持多表语句 包括 table1,table2 或 join table
+        if (tableList.size() == 1) {
+            String newSql;
+            if (selectBody.getWhere() != null) {
+                newSql = String.format("%s ; select count(*) from %s Where %s ", sql, tableList.get(0), selectBody.getWhere());
+            } else {
+                newSql = String.format("%s ; select count(*) from %s", sql, tableList.get(0));
             }
-        } catch (JSQLParserException e) {
-            e.printStackTrace();
+            List<ParameterMapping> newparameterMappings = new ArrayList<>();
+            List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();
+            newparameterMappings.addAll(parameterMappings);
+            //Limit 去两个参数，所有参数以Mapper顺序为准
+            for (int i = 0; i < parameterMappings.size() - 2; i++) {
+                newparameterMappings.add(parameterMappings.get(i));
+            }
+            BoundSql countBoundSql = new BoundSql(mappedStatement.getConfiguration(), newSql, newparameterMappings, boundSql.getParameterObject());
+            return countBoundSql;
+        } else {
+            throw new JSQLParserException("count(*) SQL 语法解析错误");
         }
-        return boundSql;
     }
 
     /**
@@ -281,10 +279,15 @@ public class QueryPaginatorInterceptor implements Interceptor {
             Select select = (Select) CCJSqlParserUtil.parse(formatSql.getSql());
             final PlainSelect selectBody = (PlainSelect) select.getSelectBody();
             final Limit limit = selectBody.getLimit();
-            Integer offset = Integer.parseInt(limit.getOffset().toString());
-            Integer itemsPerPage = Integer.parseInt(limit.getRowCount().toString());
-            pages.setItemsPerPage(itemsPerPage);
-            pages.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
+            try {
+                int offset = Integer.parseInt(limit.getOffset().toString());
+                int itemsPerPage = Integer.parseInt(limit.getRowCount().toString());
+                pages.setItemsPerPage(itemsPerPage);
+                pages.setPage(offset >= 0 && itemsPerPage > 0 ? offset / itemsPerPage + 1 : 0);
+            } catch (Exception e) {
+                pages.setItemsPerPage(0);
+                pages.setPage(0);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
